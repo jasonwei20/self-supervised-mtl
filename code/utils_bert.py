@@ -12,9 +12,9 @@ pretrained_weights = 'bert-base-uncased'
 tokenizer = tokenizer_class.from_pretrained(pretrained_weights)
 model = model_class.from_pretrained(pretrained_weights)
 
-def get_split_train_embedding_dict(sentence_to_augmented_sentences, train_txt_path, alpha):
+def get_split_train_embedding_dict(sentence_to_augmented_sentences, train_txt_path, augmentation, alpha):
     
-    embeddings_dict_path = train_txt_path.parent.joinpath(f"train_aug_swap_embeddings_{alpha}.pkl")
+    embeddings_dict_path = train_txt_path.parent.joinpath(f"train_aug_{augmentation}_embeddings_{alpha}.pkl")
     
     if not embeddings_dict_path.exists():
 

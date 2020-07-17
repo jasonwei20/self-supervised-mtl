@@ -8,7 +8,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
-def get_augmented_data_swaps(train_txt_path, augmentation, alpha, n_aug=1):
+def get_augmented_data(train_txt_path, augmentation, alpha, n_aug=1):
 
     output_pkl_path = train_txt_path.parent.joinpath(f"train_aug_{augmentation}_data_{alpha}.pkl")
 
@@ -24,6 +24,10 @@ def get_augmented_data_swaps(train_txt_path, augmentation, alpha, n_aug=1):
             sentence = parts[1]
             if augmentation == 'swap':
                 augmented_sentences = eda.get_swap_sentences(sentence, n_aug, alpha)
+            elif augmentation == 'insert':
+                augmented_sentences = eda.get_insert_sentences(sentence, n_aug, alpha)
+            elif augmentation == 'delete':
+                augmented_sentences = eda.get_insert_sentences(sentence, n_aug, alpha)
             sentence_to_augmented_sentences[sentence] = augmented_sentences
 
         utils_common.save_pickle(output_pkl_path, sentence_to_augmented_sentences)
@@ -44,15 +48,16 @@ def get_split_train_x_y(train_txt_path, train_subset, seed_num, setup, alpha):
 
     setup_to_augmentations = {  'swap': ['swap'], 'delete': ['delete'], 'insert': ['insert'],
                                 'swap-mtl': ['swap'], 'delete-mtl': ['delete'], 'insert-mtl': ['insert'], 
-                                'three_aug-mtl': ['swap', 'delete', 'insert'],
+                                'three_aug': ['delete', 'insert', 'swap'],
+                                'three_aug-mtl': ['delete', 'insert', 'swap'],
                                 'vanilla': []}
     augmentations = setup_to_augmentations[setup]
 
     big_dict_aug_sentences = {}
     big_dict_embeddings = {}
     for augmentation in augmentations:
-        sentence_to_augmented_sentences = get_augmented_data_swaps(train_txt_path, augmentation, alpha)
-        string_to_embedding = utils_bert.get_split_train_embedding_dict(sentence_to_augmented_sentences, train_txt_path, alpha)
+        sentence_to_augmented_sentences = get_augmented_data(train_txt_path, augmentation, alpha)
+        string_to_embedding = utils_bert.get_split_train_embedding_dict(sentence_to_augmented_sentences, train_txt_path, augmentation, alpha)
         big_dict_aug_sentences[augmentation] = sentence_to_augmented_sentences
         big_dict_embeddings[augmentation] = string_to_embedding
 
@@ -88,9 +93,10 @@ def get_split_train_x_y(train_txt_path, train_subset, seed_num, setup, alpha):
     train_x_np = np.asarray(train_x)
 
     # get train_y_np
+    train_labels_dup = list(train_labels)
     for _ in augmentations:
-        train_labels += train_labels
-    train_y_np = np.asarray(train_labels)
+        train_labels_dup += train_labels
+    train_y_np = np.asarray(train_labels_dup)
 
     #get train_y_aux
     num_classes_aux = len([train_x] + augmentations)

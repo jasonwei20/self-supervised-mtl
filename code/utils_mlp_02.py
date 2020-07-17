@@ -105,6 +105,7 @@ def train_mlp(
                 aux_loss = nn.CrossEntropyLoss()(input=aux_outputs, target=train_labels_aux)
                 _, aux_preds = torch.max(aux_outputs, dim=1)
                 aux_acc = accuracy_score(train_y_aux[start_idx:end_idx], aux_preds)
+                # print(f"{epoch}, {aux_acc:.4f}")
 
                 combined_loss = train_loss + aux_loss if 'mtl' in setup else train_loss
                 combined_loss.backward()

@@ -5,14 +5,14 @@ train_size_to_minibatch_size = {20:20, 50:20, 100:66, 200:100, 500:200, None:200
 
 if __name__ == "__main__":
 
-    for dataset_name in ['sst2', 'subj']:
+    for dataset_name in ['sst2']:#, 'subj']:
 
         data_folder = config.data_folders[dataset_name]
         num_classes = config.num_classes_dict[dataset_name]
         train_txt_path, train_embedding_path, test_txt_path, test_embedding_path = utils_config.get_txt_paths(data_folder)
         print(f"\n-------{dataset_name.upper()}-------")
 
-        for setup in ['vanilla', 'swap', 'swap-mtl']:
+        for setup in ['three_aug-mtl', 'vanilla']:
 
             print(f"\n{setup}:")
 
@@ -27,7 +27,7 @@ if __name__ == "__main__":
                     num_classes,
                     dataset_name,
                     train_size,
-                    alpha = 0.3,
+                    alpha = 0.2,
                     num_seeds = 10,
                     minibatch_size = train_size_to_minibatch_size[train_size],
                     )
