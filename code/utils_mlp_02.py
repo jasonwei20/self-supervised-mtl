@@ -34,16 +34,21 @@ class MLP(nn.Module):
         self.fc1 = nn.Linear(768, 50)
         self.relu1 = nn.Tanh()
         self.fc2 = nn.Linear(50, num_classes + num_classes_aux)
+        self.num_classes = num_classes
     
     def forward(self, x):
         x = self.fc1(x)
         x = self.relu1(x)
         x = self.fc2(x)
-        output = torch.sigmoid(x)
+        # output = torch.sigmoid(x)
         # output = torch.softmax(x, dim=1)
+        x_num_classes = torch.softmax(x[:, :self.num_classes], dim = 1)
+        x_aux = torch.softmax(x[:, self.num_classes:], dim = 1)
+        output = torch.cat([x_num_classes, x_aux], dim = 1)
         return output
 
 def train_mlp(  
+        setup,
         train_txt_path,
         train_embedding_path,
         test_txt_path,
@@ -59,7 +64,7 @@ def train_mlp(
     np.random.seed(seed_num)
     
     # get all the data
-    train_x, train_y, train_y_aux, num_classes_aux = utils_processing.get_split_train_x_y(train_txt_path, train_size, seed_num)
+    train_x, train_y, train_y_aux, num_classes_aux = utils_processing.get_split_train_x_y(train_txt_path, train_size, seed_num, setup)
     test_x, test_y = utils_processing.get_x_y(test_txt_path, test_embedding_path)
     # print(train_x.shape, train_y.shape, test_x.shape, test_y.shape)
 
@@ -97,9 +102,10 @@ def train_mlp(
 
                 train_loss = nn.CrossEntropyLoss()(input=primary_outputs, target=train_labels)
                 aux_loss = nn.CrossEntropyLoss()(input=aux_outputs, target=train_labels_aux)
-                # print(f"{float(train_loss):.4f}, {float(aux_loss):.4f}")
+                _, aux_preds = torch.max(aux_outputs, dim=1)
+                aux_acc = accuracy_score(train_y_aux[start_idx:end_idx], aux_preds)
 
-                combined_loss = train_loss# + aux_loss
+                combined_loss = train_loss + aux_loss if setup in ['mtl'] else train_loss
                 combined_loss.backward()
                 optimizer.step()
                 optimizer.zero_grad()
@@ -123,13 +129,13 @@ def train_mlp(
     return mean(val_acc_list[-5:])
 
 def train_mlp_multiple(  
+    setup,
     train_txt_path,
     train_embedding_path,
     test_txt_path,
     test_embedding_path,
     num_classes,
     dataset_name,
-    exp_id,
     train_size,
     num_seeds,
     minibatch_size,
@@ -141,6 +147,7 @@ def train_mlp_multiple(
     for seed_num in range(num_seeds):
 
         val_acc = train_mlp(  
+            setup,
             train_txt_path,
             train_embedding_path,
             test_txt_path,

@@ -39,7 +39,7 @@ def get_sentence_to_label(train_txt_path):
         sentence_to_label[sentence] = label
     return sentence_to_label
 
-def get_split_train_x_y(train_txt_path, train_subset, seed_num):
+def get_split_train_x_y(train_txt_path, train_subset, seed_num, setup):
 
     sentence_to_label = get_sentence_to_label(train_txt_path)
     sentence_to_augmented_sentences = get_augmented_data_swaps(train_txt_path)
@@ -60,8 +60,10 @@ def get_split_train_x_y(train_txt_path, train_subset, seed_num):
         embedding = string_to_embedding[train_sentence]
         embedding_swap = string_to_embedding[train_sentence_swap]
         train_x.append(embedding)
-        train_x_swap.append(embedding_swap)
-        # train_x_swap.append(embedding)
+        if setup in ['vanilla']:
+            train_x_swap.append(embedding)
+        else:
+            train_x_swap.append(embedding_swap)
         
     train_x_np = np.asarray(train_x + train_x_swap)
 
