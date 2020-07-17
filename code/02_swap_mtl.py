@@ -10,13 +10,13 @@ if __name__ == "__main__":
         data_folder = config.data_folders[dataset_name]
         num_classes = config.num_classes_dict[dataset_name]
         train_txt_path, train_embedding_path, test_txt_path, test_embedding_path = utils_config.get_txt_paths(data_folder)
-        print(f"-------\n{dataset_name.upper()}-------")
+        print(f"\n-------{dataset_name.upper()}-------")
 
-        for setup in ['mtl']: #['vanilla', 'aug', 'mtl']:
+        for setup in ['vanilla', 'swap', 'swap-mtl']:
 
             print(f"\n{setup}:")
 
-            for train_size in [500]:#[20, 50, 100, 500]:#, None]:
+            for train_size in [20, 50, 100, 500]:#, None]:
 
                 mean_val_acc, stdev_acc = utils_mlp_02.train_mlp_multiple(   
                     setup,
@@ -27,8 +27,9 @@ if __name__ == "__main__":
                     num_classes,
                     dataset_name,
                     train_size,
-                    minibatch_size=train_size_to_minibatch_size[train_size],
-                    num_seeds=2,
+                    alpha = 0.1,
+                    num_seeds = 2,
+                    minibatch_size = train_size_to_minibatch_size[train_size],
                     )
 
                 print(f"{train_size},{mean_val_acc:.3f},{stdev_acc:.3f}")

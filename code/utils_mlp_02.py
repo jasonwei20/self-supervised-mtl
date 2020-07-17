@@ -56,6 +56,7 @@ def train_mlp(
         num_classes,
         train_size,
         seed_num,
+        alpha,
         minibatch_size,
         num_epochs,
         ):
@@ -64,9 +65,9 @@ def train_mlp(
     np.random.seed(seed_num)
     
     # get all the data
-    train_x, train_y, train_y_aux, num_classes_aux = utils_processing.get_split_train_x_y(train_txt_path, train_size, seed_num, setup)
+    train_x, train_y, train_y_aux, num_classes_aux = utils_processing.get_split_train_x_y(train_txt_path, train_size, seed_num, setup, alpha)
     test_x, test_y = utils_processing.get_x_y(test_txt_path, test_embedding_path)
-    # print(train_x.shape, train_y.shape, test_x.shape, test_y.shape)
+    # print(train_x.shape, train_y.shape, train_y_aux.shape, test_x.shape, test_y.shape)
 
     model = MLP(num_classes=num_classes, num_classes_aux=num_classes_aux)
     optimizer = optim.Adam(params=model.parameters(), lr=0.001, weight_decay=0.05) #wow, works for even large learning rates
@@ -105,7 +106,7 @@ def train_mlp(
                 _, aux_preds = torch.max(aux_outputs, dim=1)
                 aux_acc = accuracy_score(train_y_aux[start_idx:end_idx], aux_preds)
 
-                combined_loss = train_loss + aux_loss if setup in ['mtl'] else train_loss
+                combined_loss = train_loss + aux_loss if 'mtl' in setup else train_loss
                 combined_loss.backward()
                 optimizer.step()
                 optimizer.zero_grad()
@@ -138,6 +139,7 @@ def train_mlp_multiple(
     dataset_name,
     train_size,
     num_seeds,
+    alpha,
     minibatch_size,
     num_epochs = 100,
     ):
@@ -155,6 +157,7 @@ def train_mlp_multiple(
             num_classes,
             train_size,
             seed_num,
+            alpha,
             minibatch_size,
             num_epochs,
             )

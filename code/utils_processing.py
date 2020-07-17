@@ -8,9 +8,9 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
-def get_augmented_data_swaps(train_txt_path, n_aug=5):
+def get_augmented_data_swaps(train_txt_path, augmentation, alpha, n_aug=1):
 
-    output_pkl_path = train_txt_path.parent.joinpath(f"train_aug_swap_data.pkl")
+    output_pkl_path = train_txt_path.parent.joinpath(f"train_aug_{augmentation}_data_{alpha}.pkl")
 
     if not output_pkl_path.exists():
 
@@ -22,7 +22,8 @@ def get_augmented_data_swaps(train_txt_path, n_aug=5):
         for line in lines:
             parts = line[:-1].split('\t')
             sentence = parts[1]
-            augmented_sentences = eda.get_swap_sentences(sentence, n_aug, alpha=0.3)
+            if augmentation == 'swap':
+                augmented_sentences = eda.get_swap_sentences(sentence, n_aug, alpha)
             sentence_to_augmented_sentences[sentence] = augmented_sentences
 
         utils_common.save_pickle(output_pkl_path, sentence_to_augmented_sentences)
@@ -39,39 +40,60 @@ def get_sentence_to_label(train_txt_path):
         sentence_to_label[sentence] = label
     return sentence_to_label
 
-def get_split_train_x_y(train_txt_path, train_subset, seed_num, setup):
+def get_split_train_x_y(train_txt_path, train_subset, seed_num, setup, alpha):
+
+    setup_to_augmentations = {  'swap': ['swap'], 'delete': ['delete'], 'insert': ['insert'],
+                                'swap-mtl': ['swap'], 'delete-mtl': ['delete'], 'insert-mtl': ['insert'], 
+                                'three_aug-mtl': ['swap', 'delete', 'insert'],
+                                'vanilla': []}
+    augmentations = setup_to_augmentations[setup]
+
+    big_dict_aug_sentences = {}
+    big_dict_embeddings = {}
+    for augmentation in augmentations:
+        sentence_to_augmented_sentences = get_augmented_data_swaps(train_txt_path, augmentation, alpha)
+        string_to_embedding = utils_bert.get_split_train_embedding_dict(sentence_to_augmented_sentences, train_txt_path, alpha)
+        big_dict_aug_sentences[augmentation] = sentence_to_augmented_sentences
+        big_dict_embeddings[augmentation] = string_to_embedding
 
     sentence_to_label = get_sentence_to_label(train_txt_path)
-    sentence_to_augmented_sentences = get_augmented_data_swaps(train_txt_path)
-    string_to_embedding = utils_bert.get_split_train_embedding_dict(sentence_to_augmented_sentences, train_txt_path)
-
-    sentences = list(sentence_to_augmented_sentences.keys())
+    sentences = list(sentence_to_label.keys())
     labels = []
     for sentence in sentences:
         label = sentence_to_label[sentence]
         labels.append(label)
+    original_sentence_to_embedding = utils_common.load_pickle(train_txt_path.parent.joinpath(f"train_embeddings.pkl"))
 
     train_sentences, _, train_labels, _ = train_test_split(sentences, labels, train_size=train_subset, random_state = seed_num, stratify = labels)
 
+    # get train_x_np
     train_x = []
-    train_x_swap = []
-    for train_sentence in train_sentences:
-        train_sentence_swap = sentence_to_augmented_sentences[train_sentence][0]
-        embedding = string_to_embedding[train_sentence]
-        embedding_swap = string_to_embedding[train_sentence_swap]
-        train_x.append(embedding)
-        if setup in ['vanilla']:
-            train_x_swap.append(embedding)
-        else:
-            train_x_swap.append(embedding_swap)
-        
-    train_x_np = np.asarray(train_x + train_x_swap)
+    aug_train_x_dict = {augmentation: [] for augmentation in augmentations}
 
-    for _ in [train_x_swap]:
+    for train_sentence in train_sentences:
+
+        embedding = original_sentence_to_embedding[train_sentence]
+        train_x.append(embedding)
+
+        for augmentation in augmentations:
+            sentence_to_augmented_sentences = big_dict_aug_sentences[augmentation]
+            string_to_embedding = big_dict_embeddings[augmentation]
+            train_sentence_swap = sentence_to_augmented_sentences[train_sentence][0]
+            embedding_swap = string_to_embedding[train_sentence_swap]
+            aug_train_x_dict[augmentation].append(embedding_swap)
+    
+    for augmentation in augmentations:
+        train_x += aug_train_x_dict[augmentation]
+
+    train_x_np = np.asarray(train_x)
+
+    # get train_y_np
+    for _ in augmentations:
         train_labels += train_labels
     train_y_np = np.asarray(train_labels)
 
-    num_classes_aux = len([train_x, train_x_swap])
+    #get train_y_aux
+    num_classes_aux = len([train_x] + augmentations)
     train_labels_aux = []
     for y_aux in range(num_classes_aux):
         for _ in range(len(train_sentences)):
